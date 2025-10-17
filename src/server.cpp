@@ -116,16 +116,8 @@ private:
         break;
       }
 
-      // 发送HTTP响应
-      std::string response =
-          "HTTP/1.1 200 OK\r\n"
-          "Content-Type: text/html\r\n"
-          "Content-Length: 76\r\n"
-          "\r\n"
-          "<html><body><h1>Hello from C++ Server!</h1><p>This "
-          "is a C++ implementation.</p></body></html>";
-
-      write(client_socket, response.c_str(), response.length());
+      // 回射echo给客户端
+      write(client_socket, buffer, bytes_read);
     }
   }
 };

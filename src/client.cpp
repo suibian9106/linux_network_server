@@ -83,6 +83,8 @@ public:
 
     std::cout << "Sent " << bytes_sent << " bytes to server" << std::endl;
 
+
+
     // 接收响应
     char buffer[4096];
     std::string response;
@@ -101,22 +103,7 @@ public:
       } else {
         buffer[bytes_received] = '\0';
         response.append(buffer, bytes_received);
-
-        // 检查是否接收完整（简单的HTTP响应检查）
-        if (response.find("\r\n\r\n") != std::string::npos) {
-          size_t content_length_pos = response.find("Content-Length: ");
-          if (content_length_pos != std::string::npos) {
-            size_t content_start = response.find("\r\n\r\n") + 4;
-            size_t content_length =
-                std::stoi(response.substr(content_length_pos + 16));
-            if (response.length() - content_start >= content_length) {
-              break;
-            }
-          } else {
-            // 没有Content-Length，认为接收完成
-            break;
-          }
-        }
+        break;
       }
     }
 
@@ -126,51 +113,18 @@ public:
   bool isConnected() const { return connected; }
 };
 
-// HTTP请求构建器
-class HTTPRequest {
-public:
-  static std::string createGET(const std::string &path = "/",
-                               const std::string &host = "localhost") {
-    return "GET " + path +
-           " HTTP/1.1\r\n"
-           "Host: " +
-           host +
-           "\r\n"
-           "User-Agent: C++ TCP Client\r\n"
-           "Connection: close\r\n"
-           "\r\n";
-  }
-
-  static std::string createPOST(const std::string &path = "/",
-                                const std::string &host = "localhost",
-                                const std::string &data = "") {
-    return "POST " + path +
-           " HTTP/1.1\r\n"
-           "Host: " +
-           host +
-           "\r\n"
-           "User-Agent: C++ TCP Client\r\n"
-           "Content-Type: application/x-www-form-urlencoded\r\n"
-           "Content-Length: " +
-           std::to_string(data.length()) +
-           "\r\n"
-           "Connection: close\r\n"
-           "\r\n" +
-           data;
-  }
-};
-
 int main() {
   std::cout << "=== C++ TCP Client ===" << std::endl;
 
   TCPClient client("127.0.0.1", 8080);
 
-  // 测试GET请求
-  std::string get_request = HTTPRequest::createGET("/", "localhost");
-  std::cout << "\nSending GET request..." << std::endl;
+  // 测试请求
+  std::string request;
+  std::cout<<"input request context:"<<std::endl;
+  std::cin>>request;
 
   auto start = std::chrono::high_resolution_clock::now();
-  std::string response = client.sendRequest(get_request);
+  std::string response = client.sendRequest(request);
   auto end = std::chrono::high_resolution_clock::now();
 
   auto duration =
@@ -182,14 +136,12 @@ int main() {
   // 等待一会儿再发送下一个请求
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  // 测试POST请求
-  std::string post_data = "message=Hello+Server&client=cpp";
-  std::string post_request =
-      HTTPRequest::createPOST("/api", "localhost", post_data);
-  std::cout << "\nSending POST request..." << std::endl;
+  // 测试请求
+  std::cout<<"input request context:"<<std::endl;
+  std::cin>>request;
 
   start = std::chrono::high_resolution_clock::now();
-  response = client.sendRequest(post_request);
+  response = client.sendRequest(request);
   end = std::chrono::high_resolution_clock::now();
 
   duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
