@@ -1,153 +1,165 @@
+#include "../include/client.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <chrono>
+#include <unistd.h>
 #include <cstring>
 #include <iostream>
-#include <netinet/in.h>
-#include <string>
-#include <sys/socket.h>
-#include <thread>
-#include <unistd.h>
+#include <cerrno>
 
-class TCPClient {
-private:
-  int sockfd;
-  std::string server_ip;
-  int server_port;
-  bool connected;
+Client::Client(const std::string &ip, int port) 
+    : sockfd(-1), server_ip(ip), server_port(port), connected(false) {
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = inet_addr(ip.c_str());
+}
 
-public:
-  TCPClient(const std::string &ip = "127.0.0.1", int port = 8080)
-      : server_ip(ip), server_port(port), connected(false), sockfd(-1) {}
+Client::~Client() {
+    disconnect();
+}
 
-  ~TCPClient() { disconnect(); }
-
-  bool connectToServer() {
+bool Client::connectToServer() {
     // 创建socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-      std::cerr << "Failed to create socket" << std::endl;
-      return false;
+        std::cerr << "Create socket failed: " << strerror(errno) << std::endl;
+        return false;
     }
-
-    // 设置服务器地址
-    sockaddr_in server_addr{};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(server_port);
-
-    if (inet_pton(AF_INET, server_ip.c_str(), &server_addr.sin_addr) <= 0) {
-      std::cerr << "Invalid address or address not supported" << std::endl;
-      return false;
-    }
-
+    
     // 连接服务器
-    if (connect(sockfd, (sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-      std::cerr << "Connection failed to " << server_ip << ":" << server_port
-                << std::endl;
-      return false;
+    if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        std::cerr << "Connect to server failed: " << strerror(errno) << std::endl;
+        close(sockfd);
+        sockfd = -1;
+        return false;
     }
-
+    
     connected = true;
-    std::cout << "Connected to server " << server_ip << ":" << server_port
-              << std::endl;
+    std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
     return true;
-  }
+}
 
-  void disconnect() {
-    if (connected) {
-      close(sockfd);
-      connected = false;
-      std::cout << "Disconnected from server" << std::endl;
+void Client::disconnect() {
+    if (sockfd != -1) {
+        close(sockfd);
+        sockfd = -1;
     }
-  }
+    connected = false;
+    std::cout << "Disconnected from server" << std::endl;
+}
 
-  std::string sendRequest(const std::string &request, int timeout_seconds = 5) {
-    if (!connected) {
-      if (!connectToServer()) {
-        return "Connection failed";
-      }
-    }
-
-    // 设置超时
+bool Client::setSocketTimeout(int timeout_seconds) {
     struct timeval timeout;
     timeout.tv_sec = timeout_seconds;
     timeout.tv_usec = 0;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        std::cerr << "Set receive timeout failed: " << strerror(errno) << std::endl;
+        return false;
+    }
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        std::cerr << "Set send timeout failed: " << strerror(errno) << std::endl;
+        return false;
+    }
+    
+    return true;
+}
 
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
+std::string Client::sendRequest(const std::string &request, int timeout_seconds) {
+    if (!connected) {
+        std::cerr << "Not connected to server" << std::endl;
+        return "";
+    }
+    
+    // 设置超时
+    if (!setSocketTimeout(timeout_seconds)) {
+        return "";
+    }
+    
     // 发送请求
-    ssize_t bytes_sent = send(sockfd, request.c_str(), request.length(), 0);
-    if (bytes_sent < 0) {
-      return "Send failed";
+    if (!sendCompleteMessage(request)) {
+        std::cerr << "Send request failed" << std::endl;
+        connected = false;
+        return "";
     }
-
-    std::cout << "Sent " << bytes_sent << " bytes to server" << std::endl;
-
-
-
+    
+    std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
+    
     // 接收响应
-    char buffer[4096];
     std::string response;
-
-    while (true) {
-      ssize_t bytes_received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-      if (bytes_received < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          std::cout << "Receive timeout" << std::endl;
-          break;
-        }
-        return "Receive failed";
-      } else if (bytes_received == 0) {
-        std::cout << "Server closed connection" << std::endl;
-        break;
-      } else {
-        buffer[bytes_received] = '\0';
-        response.append(buffer, bytes_received);
-        break;
-      }
+    if (!receiveCompleteMessage(response)) {
+        std::cerr << "Receive response failed" << std::endl;
+        connected = false;
+        return "";
     }
-
+    
+    std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
     return response;
-  }
+}
 
-  bool isConnected() const { return connected; }
-};
+bool Client::sendCompleteMessage(const std::string& message) {
+    // 准备消息头（长度字段）
+    int msg_length = htonl(message.length());
+    
+    // 发送消息头
+    ssize_t bytes_sent = send(sockfd, &msg_length, sizeof(msg_length), 0);
+    if (bytes_sent != sizeof(msg_length)) {
+        std::cerr << "Send message header failed: " << strerror(errno) << std::endl;
+        return false;
+    }
+    
+    // 发送消息体
+    bytes_sent = send(sockfd, message.data(), message.length(), 0);
+    if (bytes_sent != static_cast<ssize_t>(message.length())) {
+        std::cerr << "Send message body failed: " << strerror(errno) << std::endl;
+        return false;
+    }
+    
+    return true;
+}
 
-int main() {
-  std::cout << "=== C++ TCP Client ===" << std::endl;
+bool Client::receiveCompleteMessage(std::string& message) {
+    // 读取消息头（长度字段）
+    int msg_length;
+    ssize_t bytes_received = recv(sockfd, &msg_length, sizeof(msg_length), 0);
+    
+    if (bytes_received == 0) {
+        std::cerr << "Connection closed by server" << std::endl;
+        return false;
+    } else if (bytes_received < 0) {
+        std::cerr << "Receive message header failed: " << strerror(errno) << std::endl;
+        return false;
+    } else if (bytes_received != sizeof(msg_length)) {
+        std::cerr << "Incomplete message header received" << std::endl;
+        return false;
+    }
+    
+    // 转换为主机字节序
+    msg_length = ntohl(msg_length);
+    
+    if (msg_length <= 0 || msg_length > 1024 * 1024) { // 限制最大1MB
+        std::cerr << "Invalid message length: " << msg_length << std::endl;
+        return false;
+    }
+    
+    // 读取消息体
+    std::vector<char> buffer(msg_length);
+    bytes_received = recv(sockfd, buffer.data(), msg_length, 0);
+    
+    if (bytes_received < 0) {
+        std::cerr << "Receive message body failed: " << strerror(errno) << std::endl;
+        return false;
+    } else if (bytes_received != msg_length) {
+        std::cerr << "Incomplete message body received" << std::endl;
+        return false;
+    }
+    
+    message.assign(buffer.data(), msg_length);
+    return true;
+}
 
-  TCPClient client("127.0.0.1", 8080);
-
-  // 测试请求
-  std::string request;
-  std::cout<<"input request context:"<<std::endl;
-  std::cin>>request;
-
-  auto start = std::chrono::high_resolution_clock::now();
-  std::string response = client.sendRequest(request);
-  auto end = std::chrono::high_resolution_clock::now();
-
-  auto duration =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-  std::cout << "Response received in " << duration.count() << "ms" << std::endl;
-  std::cout << "Response:\n" << response << std::endl;
-
-  // 等待一会儿再发送下一个请求
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-
-  // 测试请求
-  std::cout<<"input request context:"<<std::endl;
-  std::cin>>request;
-
-  start = std::chrono::high_resolution_clock::now();
-  response = client.sendRequest(request);
-  end = std::chrono::high_resolution_clock::now();
-
-  duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-  std::cout << "Response received in " << duration.count() << "ms" << std::endl;
-  std::cout << "Response:\n" << response << std::endl;
-
-  return 0;
+bool Client::isConnected() const {
+    return connected;
 }
