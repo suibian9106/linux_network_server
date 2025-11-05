@@ -15,8 +15,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include)
 
-add_executable(server src/server.cpp)
-add_executable(client src/client.cpp)
+add_executable(main_server src/main_server.cpp src/server.cpp)
+add_executable(main_client src/main_client.cpp src/client.cpp)
 
 # target_include_directories(server PUBLIC ${CMAKE_SOURCE_DIR}/include)
 # target_include_directories(client PUBLIC ${CMAKE_SOURCE_DIR}/include)

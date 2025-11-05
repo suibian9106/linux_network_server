@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 #include <cerrno>
+#include <vector>
 
 Client::Client(const std::string &ip, int port) 
     : sockfd(-1), server_ip(ip), server_port(port), connected(false) {
@@ -100,20 +101,23 @@ std::string Client::sendRequest(const std::string &request, int timeout_seconds)
 }
 
 bool Client::sendCompleteMessage(const std::string& message) {
-    // 准备消息头（长度字段）
+    // 计算整个结构体的大小
+    size_t total_size = sizeof(int) + message.length();
+    
+    // 分配内存来构建完整的结构体
+    std::vector<char> buffer(total_size);
+    
+    // 设置长度字段（网络字节序）
     int msg_length = htonl(message.length());
+    memcpy(buffer.data(), &msg_length, sizeof(msg_length));
     
-    // 发送消息头
-    ssize_t bytes_sent = send(sockfd, &msg_length, sizeof(msg_length), 0);
-    if (bytes_sent != sizeof(msg_length)) {
-        std::cerr << "Send message header failed: " << strerror(errno) << std::endl;
-        return false;
-    }
+    // 拷贝数据内容
+    memcpy(buffer.data() + sizeof(msg_length), message.data(), message.length());
     
-    // 发送消息体
-    bytes_sent = send(sockfd, message.data(), message.length(), 0);
-    if (bytes_sent != static_cast<ssize_t>(message.length())) {
-        std::cerr << "Send message body failed: " << strerror(errno) << std::endl;
+    // 一次性发送整个结构体
+    ssize_t bytes_sent = send(sockfd, buffer.data(), total_size, 0);
+    if (bytes_sent != static_cast<ssize_t>(total_size)) {
+        std::cerr << "Send message struct failed: " << strerror(errno) << std::endl;
         return false;
     }
     
@@ -146,14 +150,18 @@ bool Client::receiveCompleteMessage(std::string& message) {
     
     // 读取消息体
     std::vector<char> buffer(msg_length);
-    bytes_received = recv(sockfd, buffer.data(), msg_length, 0);
-    
-    if (bytes_received < 0) {
-        std::cerr << "Receive message body failed: " << strerror(errno) << std::endl;
+    int bytes_cnt = 0;
+    while(bytes_cnt < msg_length){
+      bytes_received = recv(sockfd, buffer.data(), msg_length, 0);
+      if (bytes_received < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          // 非阻塞模式下没有数据可读
+          continue;
+        }
+        std::cerr << "Read message body failed: " << strerror(errno) << std::endl;
         return false;
-    } else if (bytes_received != msg_length) {
-        std::cerr << "Incomplete message body received" << std::endl;
-        return false;
+      }
+      bytes_cnt += bytes_received;
     }
     
     message.assign(buffer.data(), msg_length);

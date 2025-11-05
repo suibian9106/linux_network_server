@@ -2,7 +2,7 @@
 #define EPOLL_SERVER_H
 
 #include <string>
-#include <unordered_map>
+#include <set>
 
 // 简单文本协议 - echo服务器使用原始字节流
 struct EchoMessage {
@@ -48,7 +48,7 @@ private:
     int listen_fd_;                         // 监听套接字描述符
     int epoll_fd_;                          // epoll描述符
     bool running_;                          // 服务器是否在运行
-    std::unordered_map<int, std::string> client_buffers_; // 客户端接收缓冲区
+    std::set<int> client_buffers_;          // 客户端
 };
 
 #endif // EPOLL_SERVER_H

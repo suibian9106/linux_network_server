@@ -8,6 +8,7 @@
 #include <cstring>
 #include <iostream>
 #include <cerrno>
+#include <vector>
 
 EpollServer::EpollServer(const ServerConfig& config) 
     : config_(config), listen_fd_(-1), epoll_fd_(-1), running_(false) {
@@ -160,7 +161,7 @@ void EpollServer::stop() {
     
     // 关闭所有客户端连接
     for (auto& client : client_buffers_) {
-        close(client.first);
+        close(client);
     }
     client_buffers_.clear();
     
@@ -192,7 +193,7 @@ void EpollServer::handleNewConnection() {
         addEpollEvent(client_fd, events);
         
         // 初始化客户端缓冲区
-        client_buffers_[client_fd] = "";
+        client_buffers_.insert(client_fd);
         
         std::cout << "New client connected: " << inet_ntoa(client_addr.sin_addr) 
                   << ":" << ntohs(client_addr.sin_port) << std::endl;
@@ -201,7 +202,7 @@ void EpollServer::handleNewConnection() {
 
 void EpollServer::handleClientData(int fd) {
     std::string received_data;
-    
+    std::cout << "handle data" << std::endl;
     if (readCompleteMessage(fd, received_data)) {
         // 回射数据
         if (sendCompleteMessage(fd, received_data)) {
@@ -253,20 +254,19 @@ bool EpollServer::readCompleteMessage(int fd, std::string& message) {
     
     // 读取消息体
     std::vector<char> buffer(msg_length);
-    bytes_read = recv(fd, buffer.data(), msg_length, 0);
-    
-    if (bytes_read < 0) {
+    int bytes_cnt = 0;
+    while(bytes_cnt < msg_length){
+      bytes_read = recv(fd, buffer.data(), msg_length, 0);
+      if (bytes_read < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // 非阻塞模式下没有数据可读
-            return false; // 需要重新读取
+          // 非阻塞模式下没有数据可读
+          continue;
         }
         std::cerr << "Read message body failed: " << strerror(errno) << std::endl;
         return false;
-    } else if (bytes_read != msg_length) {
-        std::cerr << "Incomplete message body received" << std::endl;
-        return false;
+      }
+      bytes_cnt += bytes_read;
     }
-    
     message.assign(buffer.data(), msg_length);
     return true;
 }
