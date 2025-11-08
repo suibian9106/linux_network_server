@@ -17,6 +17,9 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(main_server src/main_server.cpp src/server.cpp)
 add_executable(main_client src/main_client.cpp src/client.cpp)
+add_executable(main_stress stress_test/main_stress.cpp stress_test/stress_client.cpp src/client.cpp)
+
+target_link_libraries(main_stress pthread)
 
 # target_include_directories(server PUBLIC ${CMAKE_SOURCE_DIR}/include)
 # target_include_directories(client PUBLIC ${CMAKE_SOURCE_DIR}/include)
