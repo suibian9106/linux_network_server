@@ -48,7 +48,7 @@ public:
     void printStats() const;        // 打印统计信息
     
 private:
-    void workerThread(int thread_id);                   // 工作线程
+    void workerThread(int thread_id, int num_clients);                   // 工作线程
     std::string generateRandomMessage(int min_size, int max_size); // 生成随机消息
     void updateStats(bool success, long sent_bytes, long received_bytes); // 更新统计
     

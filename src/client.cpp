@@ -37,7 +37,7 @@ bool Client::connectToServer() {
     }
     
     connected = true;
-    std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
+    // std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
     return true;
 }
 
@@ -47,7 +47,7 @@ void Client::disconnect() {
         sockfd = -1;
     }
     connected = false;
-    std::cout << "Disconnected from server" << std::endl;
+    // std::cout << "Disconnected from server" << std::endl;
 }
 
 bool Client::setSocketTimeout(int timeout_seconds) {
@@ -86,7 +86,7 @@ std::string Client::sendRequest(const std::string &request, int timeout_seconds)
         return "";
     }
     
-    std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
+    // std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
     
     // 接收响应
     std::string response;
@@ -96,7 +96,7 @@ std::string Client::sendRequest(const std::string &request, int timeout_seconds)
         return "";
     }
     
-    std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
+    // std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
     return response;
 }
 

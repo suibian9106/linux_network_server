@@ -202,7 +202,7 @@ void EpollServer::handleNewConnection() {
 
 void EpollServer::handleClientData(int fd) {
     std::string received_data;
-    std::cout << "handle data" << std::endl;
+    // std::cout << "handle data" << std::endl;
     if (readCompleteMessage(fd, received_data)) {
         // 回射数据
         if (sendCompleteMessage(fd, received_data)) {
