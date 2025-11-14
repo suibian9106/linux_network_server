@@ -206,7 +206,7 @@ void EpollServer::handleClientData(int fd) {
     if (readCompleteMessage(fd, received_data)) {
         // 回射数据
         if (sendCompleteMessage(fd, received_data)) {
-            std::cout << "Echoed " << received_data.length() << " bytes to client " << fd << std::endl;
+            // std::cout << "Echoed " << received_data.length() << " bytes to client " << fd << std::endl;
         } else {
             std::cerr << "Failed to send echo to client " << fd << std::endl;
             handleClientClose(fd);

@@ -28,7 +28,7 @@ void StressClient::run() {
     auto start_time = std::chrono::steady_clock::now();
     
     // 创建工作线程
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 50; ++i) {
         workers_.emplace_back(&StressClient::workerThread, this, i, config_.num_clients);
     }
     
@@ -81,7 +81,7 @@ void StressClient::workerThread(int thread_id, int num_clients) {
     if (config_.verbose) {
         std::cout << client_name << " started" << std::endl;
     }
-    for(int i = 0; i < num_clients / 100; ++i) {
+    for(int i = 0; i < num_clients / 50; ++i) {
         // 创建客户端实例
         Client client(config_.server_ip, config_.server_port);
         
