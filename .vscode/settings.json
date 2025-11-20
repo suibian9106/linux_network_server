@@ -55,6 +55,12 @@
         "ranges": "cpp",
         "stop_token": "cpp",
         "thread": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "csignal": "cpp",
+        "iomanip": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "condition_variable": "cpp",
+        "mutex": "cpp"
     }
 }

@@ -6,6 +6,9 @@
 #include <thread>
 #include <vector>
 #include <random>
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 // 压力测试统计
 struct StressStats {
@@ -36,6 +39,10 @@ struct StressConfig {
     int server_port = 8080;
     bool random_messages = true;    // 是否使用随机消息
     bool verbose = false;           // 是否输出详细信息
+    bool continuous_mode = false;   // 是否持续运行模式
+    int duration_seconds = 0;       // 测试持续时间(秒)，0表示无限
+    int think_time_ms = 0;          // 思考时间(毫秒)
+    int stats_interval = 5;         // 统计报告间隔(秒)
 };
 
 class StressClient {
@@ -48,17 +55,22 @@ public:
     void printStats() const;        // 打印统计信息
     
 private:
-    void workerThread(int thread_id, int num_clients);                   // 工作线程
+    void workerThread(int thread_id);                   // 工作线程
+    void statsReporter();                               // 统计报告线程
     std::string generateRandomMessage(int min_size, int max_size); // 生成随机消息
     void updateStats(bool success, long sent_bytes, long received_bytes); // 更新统计
+    bool shouldContinue();                              // 检查是否继续运行
+    void printCurrentStats();                           // 打印当前统计
     
 private:
     StressConfig config_;
     StressStats stats_;
     std::atomic<bool> running_{false};
     std::vector<std::thread> workers_;
+    std::thread reporter_thread_;
     std::random_device rd_;
     std::mt19937 gen_;
+    std::chrono::steady_clock::time_point test_start_time_;
 };
 
 #endif // STRESS_CLIENT_H
