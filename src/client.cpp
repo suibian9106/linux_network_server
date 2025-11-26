@@ -145,7 +145,7 @@ int Client::receiveCompleteMessage(std::string& message) {
     // 转换为主机字节序
     msg_length = ntohl(msg_length);
     
-    if (msg_length <= 0 || msg_length > 1024 * 1024) { // 限制最大1MB
+    if (msg_length <= 0) {
         std::cerr << "Invalid message length: " << msg_length << std::endl;
         return -1;
     }
