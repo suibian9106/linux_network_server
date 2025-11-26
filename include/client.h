@@ -18,19 +18,21 @@ private:
     int server_port;         // 服务器端口
     bool connected;          // 是否处于连接状态
     struct sockaddr_in server_addr; // 服务器地址
+    int timeout_seconds;
 
 public:
     Client(const std::string &ip, int port);
     ~Client();
     bool connectToServer();  // 连接到服务器
     void disconnect();       // 关闭连接
-    std::string sendRequest(const std::string &request, int timeout_seconds);  // 发送请求和处理接收
+    int sendRequest(const std::string &request);  // 发送请求
+    int receiveResponse();  // 处理接收
     bool isConnected() const; // 判断是否处于连接状态
     
 private:
     bool setSocketTimeout(int timeout_seconds); // 设置socket超时
-    bool sendCompleteMessage(const std::string& message); // 发送完整报文
-    bool receiveCompleteMessage(std::string& message);    // 接收完整报文
+    int sendCompleteMessage(const std::string& message); // 发送完整报文
+    int receiveCompleteMessage(std::string& message);    // 接收完整报文
 };
 
 #endif // CLIENT_H

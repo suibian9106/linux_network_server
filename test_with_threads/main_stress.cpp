@@ -52,10 +52,8 @@ int main(int argc, char* argv[]) {
             config.continuous_mode = true;
         } else if (arg == "-cont") {
             config.continuous_mode = true;
-        } else if (arg == "-min" && i + 1 < argc) {
-            config.message_min_size = std::stoi(argv[++i]);
-        } else if (arg == "-max" && i + 1 < argc) {
-            config.message_max_size = std::stoi(argv[++i]);
+        } else if (arg == "-m" && i + 1 < argc) {
+            config.message_size = std::stoi(argv[++i]);
         } else if (arg == "-t" && i + 1 < argc) {
             config.think_time_ms = std::stoi(argv[++i]);
         } else if (arg == "-ip" && i + 1 < argc) {

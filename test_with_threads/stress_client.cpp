@@ -77,9 +77,6 @@ void StressClient::run() {
     std::cout << "Data sent: " << mb_sent << " MB" << std::endl;
     std::cout << "Data received: " << mb_received << " MB" << std::endl;
     std::cout << "Data per second: " << mb_per_second << " MB/s" << std::endl;
-    std::cout << "Success rate: " 
-              << (static_cast<double>(stats_.successful_requests) / stats_.total_requests * 100.0)
-              << "%" << std::endl;
 }
 
 void StressClient::stop() {
@@ -109,7 +106,6 @@ void StressClient::workerThread(int thread_id) {
     
     if (!client.connectToServer()) {
         std::cerr << client_name << " failed to connect to server" << std::endl;
-        stats_.failed_requests++;
         stats_.total_requests++;
         return;
     }
@@ -121,25 +117,15 @@ void StressClient::workerThread(int thread_id) {
         std::string message;
         
         if (config_.random_messages) {
-            message = generateRandomMessage(config_.message_min_size, config_.message_max_size);
+            message = generateMessage();
         } else {
             message = client_name + " - Message " + std::to_string(request_count);
         }
         
-        long sent_bytes = message.length();
-        std::string response = client.sendRequest(message, config_.request_timeout);
-        long received_bytes = response.length();
+        int sent_bytes = client.sendRequest(message);
+        int received_bytes = client.receiveResponse();
         
-        bool success = (!response.empty() && response == message);
-        updateStats(success, sent_bytes, received_bytes);
-        
-        if (config_.verbose && request_count % 100 == 0) {
-            if (success) {
-                std::cout << client_name << " request " << request_count << " successful" << std::endl;
-            } else {
-                std::cerr << client_name << " request " << request_count << " failed" << std::endl;
-            }
-        }
+        updateStats(sent_bytes, received_bytes);
         
         request_count++;
         
@@ -194,43 +180,35 @@ bool StressClient::shouldContinue() {
     return true; // 无限运行
 }
 
-std::string StressClient::generateRandomMessage(int min_size, int max_size) {
-    static const char alphanum[] =
+std::string StressClient::generateMessage() {
+    static const char alphanum[] = 
         "0123456789"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
     
-    std::uniform_int_distribution<> size_dist(min_size, max_size);
-    std::uniform_int_distribution<> char_dist(0, sizeof(alphanum) - 2);
-    
-    int size = size_dist(gen_);
     std::string message;
-    message.reserve(size);
+    message.reserve(config_.message_size);
     
-    for (int i = 0; i < size; ++i) {
-        message += alphanum[char_dist(gen_)];
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<> dis(0, sizeof(alphanum) - 2);
+    
+    for (int i = 0; i < config_.message_size; ++i) {
+        message += alphanum[dis(gen)];
     }
     
     return message;
 }
 
-void StressClient::updateStats(bool success, long sent_bytes, long received_bytes) {
+void StressClient::updateStats(long sent_bytes, long received_bytes) {
     stats_.total_requests++;
-    
-    if (success) {
-        stats_.successful_requests++;
-        stats_.total_bytes_sent += sent_bytes;
-        stats_.total_bytes_received += received_bytes;
-    } else {
-        stats_.failed_requests++;
-    }
+    stats_.total_bytes_sent += sent_bytes;
+    stats_.total_bytes_received += received_bytes;
 }
 
 void StressClient::printStats() const {
     std::cout << "=== Stress Test Statistics ===" << std::endl;
     std::cout << "Total requests: " << stats_.total_requests << std::endl;
-    std::cout << "Successful requests: " << stats_.successful_requests << std::endl;
-    std::cout << "Failed requests: " << stats_.failed_requests << std::endl;
     std::cout << "Total bytes sent: " << stats_.total_bytes_sent << std::endl;
     std::cout << "Total bytes received: " << stats_.total_bytes_received << std::endl;
 }
@@ -243,13 +221,8 @@ void StressClient::printCurrentStats() {
     double requests_per_second = total_elapsed > 0 ? 
         static_cast<double>(stats_.total_requests) / total_elapsed : 0;
     
-    double success_rate = stats_.total_requests > 0 ?
-        (static_cast<double>(stats_.successful_requests) / stats_.total_requests * 100.0) : 0;
-    
     std::cout << "[Progress] Time: " << total_elapsed << "s, " 
               << "Requests: " << stats_.total_requests << ", "
-              << "Success: " << stats_.successful_requests << ", "
-              << "Failed: " << stats_.failed_requests << ", "
               << "RPS: " << std::fixed << std::setprecision(2) << requests_per_second << ", "
-              << "Success Rate: " << success_rate << "%" << std::endl;
+              << std::endl;
 }

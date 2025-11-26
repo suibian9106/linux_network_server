@@ -24,23 +24,12 @@ int main() {
     
     // 发送测试消息
     for (const auto& message : test_messages) {
-        std::string response = client.sendRequest(message, 5); // 5秒超时
-        if (response.empty()) {
+        if (client.sendRequest(message)<0) {
             std::cerr << "Request failed" << std::endl;
             break;
         }
-        
-        // 验证回射是否正确
-        if (response != message) {
-            std::cerr << "Echo mismatch!" << std::endl;
-            std::cerr << "Sent: " << message << std::endl;
-            std::cerr << "Received: " << response << std::endl;
-        } else {
-            std::cout << "Echo verified: " << message << std::endl;
-        }
-        
         // 短暂延迟
-        sleep(1);
+        client.receiveResponse();
     }
     
     // 断开连接

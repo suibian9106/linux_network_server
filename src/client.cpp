@@ -14,6 +14,7 @@ Client::Client(const std::string &ip, int port)
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = inet_addr(ip.c_str());
+    timeout_seconds = 5;
 }
 
 Client::~Client() {
@@ -35,7 +36,7 @@ bool Client::connectToServer() {
         sockfd = -1;
         return false;
     }
-    
+    setSocketTimeout(timeout_seconds);
     connected = true;
     // std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
     return true;
@@ -68,39 +69,40 @@ bool Client::setSocketTimeout(int timeout_seconds) {
     return true;
 }
 
-std::string Client::sendRequest(const std::string &request, int timeout_seconds) {
+int Client::sendRequest(const std::string &request) {
     if (!connected) {
         std::cerr << "Not connected to server" << std::endl;
-        return "";
-    }
-    
-    // 设置超时
-    if (!setSocketTimeout(timeout_seconds)) {
-        return "";
+        return -1;
     }
     
     // 发送请求
-    if (!sendCompleteMessage(request)) {
+    int len = sendCompleteMessage(request);
+    if (len < 0) {
         std::cerr << "Send request failed" << std::endl;
         connected = false;
-        return "";
+        return -1;
     }
-    
+
     // std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
-    
+
+    return len;
+}
+
+int Client::receiveResponse(){
     // 接收响应
     std::string response;
-    if (!receiveCompleteMessage(response)) {
+    int len = receiveCompleteMessage(response);
+    if (len < 0) {
         std::cerr << "Receive response failed" << std::endl;
         connected = false;
-        return "";
+        return -1;
     }
     
     // std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
-    return response;
+    return len;
 }
 
-bool Client::sendCompleteMessage(const std::string& message) {
+int Client::sendCompleteMessage(const std::string& message) {
     // 计算整个结构体的大小
     size_t total_size = sizeof(int) + message.length();
     
@@ -118,26 +120,26 @@ bool Client::sendCompleteMessage(const std::string& message) {
     ssize_t bytes_sent = send(sockfd, buffer.data(), total_size, 0);
     if (bytes_sent != static_cast<ssize_t>(total_size)) {
         std::cerr << "Send message struct failed: " << strerror(errno) << std::endl;
-        return false;
+        return -1;
     }
     
-    return true;
+    return message.length();
 }
 
-bool Client::receiveCompleteMessage(std::string& message) {
+int Client::receiveCompleteMessage(std::string& message) {
     // 读取消息头（长度字段）
     int msg_length;
     ssize_t bytes_received = recv(sockfd, &msg_length, sizeof(msg_length), 0);
     
     if (bytes_received == 0) {
         std::cerr << "Connection closed by server" << std::endl;
-        return false;
+        return -1;
     } else if (bytes_received < 0) {
         std::cerr << "Receive message header failed: " << strerror(errno) << std::endl;
-        return false;
+        return -1;
     } else if (bytes_received != sizeof(msg_length)) {
         std::cerr << "Incomplete message header received" << std::endl;
-        return false;
+        return -1;
     }
     
     // 转换为主机字节序
@@ -145,7 +147,7 @@ bool Client::receiveCompleteMessage(std::string& message) {
     
     if (msg_length <= 0 || msg_length > 1024 * 1024) { // 限制最大1MB
         std::cerr << "Invalid message length: " << msg_length << std::endl;
-        return false;
+        return -1;
     }
     
     // 读取消息体
@@ -159,13 +161,13 @@ bool Client::receiveCompleteMessage(std::string& message) {
           continue;
         }
         std::cerr << "Read message body failed: " << strerror(errno) << std::endl;
-        return false;
+        return -1;
       }
       bytes_cnt += bytes_received;
     }
     
     message.assign(buffer.data(), msg_length);
-    return true;
+    return msg_length;
 }
 
 bool Client::isConnected() const {

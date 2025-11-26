@@ -13,15 +13,11 @@
 // 压力测试统计
 struct StressStats {
     std::atomic<long> total_requests{0};
-    std::atomic<long> successful_requests{0};
-    std::atomic<long> failed_requests{0};
     std::atomic<long> total_bytes_sent{0};
     std::atomic<long> total_bytes_received{0};
 
     void reset() {
         total_requests = 0;
-        successful_requests = 0;
-        failed_requests = 0;
         total_bytes_sent = 0;
         total_bytes_received = 0;
     }
@@ -31,8 +27,7 @@ struct StressStats {
 struct StressConfig {
     int num_clients = 10;           // 并发客户端数量
     int requests_per_client = 100;  // 每个客户端发送的请求数
-    int message_min_size = 10;      // 消息最小大小
-    int message_max_size = 1024;    // 消息最大大小
+    int message_size = 10;          // 消息大小
     int connect_timeout = 5;        // 连接超时(秒)
     int request_timeout = 3;        // 请求超时(秒)
     std::string server_ip = "127.0.0.1";
@@ -57,8 +52,8 @@ public:
 private:
     void workerThread(int thread_id);                   // 工作线程
     void statsReporter();                               // 统计报告线程
-    std::string generateRandomMessage(int min_size, int max_size); // 生成随机消息
-    void updateStats(bool success, long sent_bytes, long received_bytes); // 更新统计
+    std::string generateMessage();                      // 生成消息
+    void updateStats(long sent_bytes, long received_bytes); // 更新统计
     bool shouldContinue();                              // 检查是否继续运行
     void printCurrentStats();                           // 打印当前统计
     
