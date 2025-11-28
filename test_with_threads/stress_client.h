@@ -13,6 +13,7 @@
 // 压力测试统计
 struct StressStats {
     std::atomic<long> total_requests{0};
+    std::atomic<long> total_responses{0};
     std::atomic<long> total_bytes_sent{0};
     std::atomic<long> total_bytes_received{0};
 

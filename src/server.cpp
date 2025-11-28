@@ -195,15 +195,16 @@ void EpollServer::handleNewConnection() {
         // 初始化客户端缓冲区
         client_buffers_.insert(client_fd);
         
-        std::cout << "New client connected: " << inet_ntoa(client_addr.sin_addr) 
-                  << ":" << ntohs(client_addr.sin_port) << std::endl;
+        // std::cout << "New client connected: " << inet_ntoa(client_addr.sin_addr) 
+        //           << ":" << ntohs(client_addr.sin_port) << std::endl;
     }
 }
 
 void EpollServer::handleClientData(int fd) {
     std::string received_data;
+    int msg_len = 0;
     // std::cout << "handle data" << std::endl;
-    if (readCompleteMessage(fd, received_data)) {
+    while ((msg_len = readCompleteMessage(fd, received_data)) > 0) {
         // 回射数据
         if (sendCompleteMessage(fd, received_data)) {
             // std::cout << "Echoed " << received_data.length() << " bytes to client " << fd << std::endl;
@@ -211,7 +212,8 @@ void EpollServer::handleClientData(int fd) {
             std::cerr << "Failed to send echo to client " << fd << std::endl;
             handleClientClose(fd);
         }
-    } else {
+    } 
+    if (msg_len < 0) {
         // 读取失败或连接关闭
         handleClientClose(fd);
     }
@@ -221,74 +223,80 @@ void EpollServer::handleClientClose(int fd) {
     removeEpollEvent(fd);
     close(fd);
     client_buffers_.erase(fd);
-    std::cout << "Client " << fd << " disconnected" << std::endl;
+    // std::cout << "Client " << fd << " disconnected" << std::endl;
 }
 
-bool EpollServer::readCompleteMessage(int fd, std::string& message) {
+int EpollServer::readCompleteMessage(int fd, std::string& message) {
     // 读取消息头（长度字段）
     int msg_length;
-    ssize_t bytes_read = recv(fd, &msg_length, sizeof(msg_length), 0);
+    ssize_t bytes_received = recv(fd, &msg_length, sizeof(msg_length), 0);
     
-    if (bytes_read == 0) {
-        // 连接关闭
-        return false;
-    } else if (bytes_read < 0) {
+    if (bytes_received == 0) {
+        // std::cerr << "Connection closed by client" << std::endl;
+        return -1;
+    } else if (bytes_received < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // 非阻塞模式下没有数据可读
-            return true; // 继续等待
+          // 非阻塞模式下没有数据可读
+          return 0;
         }
-        std::cerr << "Read message header failed: " << strerror(errno) << std::endl;
-        return false;
-    } else if (bytes_read != sizeof(msg_length)) {
+        std::cerr << "Receive message header failed: " << strerror(errno) << std::endl;
+        return -1;
+    } else if (bytes_received != sizeof(msg_length)) {
         std::cerr << "Incomplete message header received" << std::endl;
-        return false;
+        return -1;
     }
     
     // 转换为主机字节序
     msg_length = ntohl(msg_length);
     
-    if (msg_length <= 0 || msg_length > 1024 * 1024) { // 限制最大1MB
+    if (msg_length <= 0) {
         std::cerr << "Invalid message length: " << msg_length << std::endl;
-        return false;
+        return -1;
     }
     
     // 读取消息体
     std::vector<char> buffer(msg_length);
     int bytes_cnt = 0;
     while(bytes_cnt < msg_length){
-      bytes_read = recv(fd, buffer.data(), msg_length, 0);
-      if (bytes_read < 0) {
+      bytes_received = recv(fd, buffer.data(), msg_length, 0);
+      if (bytes_received < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
           // 非阻塞模式下没有数据可读
           continue;
         }
         std::cerr << "Read message body failed: " << strerror(errno) << std::endl;
-        return false;
+        return -1;
       }
-      bytes_cnt += bytes_read;
+      bytes_cnt += bytes_received;
     }
+    // total_recv += msg_length;
+    // std::cout << total_recv << std::endl;
     message.assign(buffer.data(), msg_length);
-    return true;
+    return msg_length;
 }
 
 bool EpollServer::sendCompleteMessage(int fd, const std::string& message) {
-    // 准备消息头（长度字段）
+    // 计算整个结构体的大小
+    size_t total_size = sizeof(int) + message.length();
+    
+    // 分配内存来构建完整的结构体
+    std::vector<char> buffer(total_size);
+    
+    // 设置长度字段（网络字节序）
     int msg_length = htonl(message.length());
+    memcpy(buffer.data(), &msg_length, sizeof(msg_length));
     
-    // 发送消息头
-    ssize_t bytes_sent = send(fd, &msg_length, sizeof(msg_length), 0);
-    if (bytes_sent != sizeof(msg_length)) {
-        std::cerr << "Send message header failed" << std::endl;
+    // 拷贝数据内容
+    memcpy(buffer.data() + sizeof(msg_length), message.data(), message.length());
+    
+    // 一次性发送整个结构体
+    ssize_t bytes_sent = send(fd, buffer.data(), total_size, 0);
+    if (bytes_sent != static_cast<ssize_t>(total_size)) {
+        std::cerr << "Send message struct failed: " << strerror(errno) << std::endl;
         return false;
     }
-    
-    // 发送消息体
-    bytes_sent = send(fd, message.data(), message.length(), 0);
-    if (bytes_sent != static_cast<ssize_t>(message.length())) {
-        std::cerr << "Send message body failed" << std::endl;
-        return false;
-    }
-    
+    // total_send += message.length();
+    // std::cout << total_send << std::endl;
     return true;
 }
 

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cerrno>
 #include <vector>
+#include <fcntl.h>
 
 Client::Client(const std::string &ip, int port) 
     : sockfd(-1), server_ip(ip), server_port(port), connected(false) {
@@ -14,7 +15,7 @@ Client::Client(const std::string &ip, int port)
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = inet_addr(ip.c_str());
-    timeout_seconds = 5;
+    timeout_seconds = 60;
 }
 
 Client::~Client() {
@@ -37,6 +38,9 @@ bool Client::connectToServer() {
         return false;
     }
     setSocketTimeout(timeout_seconds);
+    // // 设置为非阻塞模式
+    // int flags = fcntl(sockfd, F_GETFL, 0);
+    // fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     connected = true;
     // std::cout << "Connected to server " << server_ip << ":" << server_port << std::endl;
     return true;
@@ -135,6 +139,10 @@ int Client::receiveCompleteMessage(std::string& message) {
         std::cerr << "Connection closed by server" << std::endl;
         return -1;
     } else if (bytes_received < 0) {
+        // if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        //   // 非阻塞模式下没有数据可读
+        //   return 0;
+        // }
         std::cerr << "Receive message header failed: " << strerror(errno) << std::endl;
         return -1;
     } else if (bytes_received != sizeof(msg_length)) {
@@ -156,10 +164,10 @@ int Client::receiveCompleteMessage(std::string& message) {
     while(bytes_cnt < msg_length){
       bytes_received = recv(sockfd, buffer.data(), msg_length, 0);
       if (bytes_received < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          // 非阻塞模式下没有数据可读
-          continue;
-        }
+        // if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        //   // 非阻塞模式下没有数据可读
+        //   continue;
+        // }
         std::cerr << "Read message body failed: " << strerror(errno) << std::endl;
         return -1;
       }

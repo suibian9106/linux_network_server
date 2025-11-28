@@ -13,7 +13,7 @@ struct EchoMessage {
 // 服务器配置
 struct ServerConfig {
     int port = 8080;
-    int max_events = 1024;
+    int max_events = 20000;
     int timeout_ms = 10000; // 10秒超时
     bool use_et_mode = true; // 使用边缘触发模式
     int buffer_size = 4096;  // 缓冲区大小
@@ -39,7 +39,7 @@ private:
     void removeEpollEvent(int fd);                  // 删除epoll事件
     
     // 读取完整报文
-    bool readCompleteMessage(int fd, std::string& message);
+    int readCompleteMessage(int fd, std::string& message);
     // 发送完整报文
     bool sendCompleteMessage(int fd, const std::string& message);
     
@@ -49,6 +49,8 @@ private:
     int epoll_fd_;                          // epoll描述符
     bool running_;                          // 服务器是否在运行
     std::set<int> client_buffers_;          // 客户端
+    // int total_recv;
+    // int total_send;
 };
 
 #endif // EPOLL_SERVER_H

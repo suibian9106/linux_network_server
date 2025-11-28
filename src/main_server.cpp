@@ -19,7 +19,7 @@ int main() {
     // 服务器配置
     ServerConfig config;
     config.port = 8080;
-    config.max_events = 1024;
+    config.max_events = 20000;
     config.timeout_ms = 10000;
     config.use_et_mode = true;
     

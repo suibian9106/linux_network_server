@@ -124,7 +124,6 @@ void StressClient::workerThread(int thread_id) {
         
         int sent_bytes = client.sendRequest(message);
         int received_bytes = client.receiveResponse();
-        
         updateStats(sent_bytes, received_bytes);
         
         request_count++;
@@ -201,14 +200,20 @@ std::string StressClient::generateMessage() {
 }
 
 void StressClient::updateStats(long sent_bytes, long received_bytes) {
-    stats_.total_requests++;
-    stats_.total_bytes_sent += sent_bytes;
-    stats_.total_bytes_received += received_bytes;
+    if (sent_bytes > 0) {
+        stats_.total_bytes_sent += sent_bytes;
+        stats_.total_requests++;
+    }
+    if (received_bytes > 0) {
+        stats_.total_bytes_received += received_bytes;
+        stats_.total_responses++;
+    }
 }
 
 void StressClient::printStats() const {
     std::cout << "=== Stress Test Statistics ===" << std::endl;
     std::cout << "Total requests: " << stats_.total_requests << std::endl;
+    std::cout << "Total responses: " << stats_.total_responses << std::endl;
     std::cout << "Total bytes sent: " << stats_.total_bytes_sent << std::endl;
     std::cout << "Total bytes received: " << stats_.total_bytes_received << std::endl;
 }
