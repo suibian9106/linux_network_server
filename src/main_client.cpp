@@ -28,7 +28,7 @@ int main() {
             std::cerr << "Request failed" << std::endl;
             break;
         }
-        // 短暂延迟
+
         client.receiveResponse();
     }
     

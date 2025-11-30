@@ -310,16 +310,6 @@ void EpollServer::addEpollEvent(int fd, uint32_t events) {
     }
 }
 
-void EpollServer::modifyEpollEvent(int fd, uint32_t events) {
-    struct epoll_event ev;
-    ev.events = events;
-    ev.data.fd = fd;
-    
-    if (epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev) == -1) {
-        std::cerr << "Modify epoll event failed for fd " << fd << ": " << strerror(errno) << std::endl;
-    }
-}
-
 void EpollServer::removeEpollEvent(int fd) {
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == -1) {
         std::cerr << "Remove epoll event failed for fd " << fd << ": " << strerror(errno) << std::endl;

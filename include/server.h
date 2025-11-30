@@ -16,7 +16,6 @@ struct ServerConfig {
     int max_events = 20000;
     int timeout_ms = 10000; // 10秒超时
     bool use_et_mode = true; // 使用边缘触发模式
-    int buffer_size = 4096;  // 缓冲区大小
 };
 
 class EpollServer {
@@ -35,7 +34,6 @@ private:
     void handleClientData(int fd);  // 处理客户端数据，回射
     void handleClientClose(int fd); // 关闭连接
     void addEpollEvent(int fd, uint32_t events);    // 添加epoll事件
-    void modifyEpollEvent(int fd, uint32_t events); // 修改epoll事件
     void removeEpollEvent(int fd);                  // 删除epoll事件
     
     // 读取完整报文

@@ -87,7 +87,7 @@ int Client::sendRequest(const std::string &request) {
         return -1;
     }
 
-    // std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
+    std::cout << "Sent request: " << request << " (" << request.length() << " bytes)" << std::endl;
 
     return len;
 }
@@ -102,7 +102,7 @@ int Client::receiveResponse(){
         return -1;
     }
     
-    // std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
+    std::cout << "Received response: " << response << " (" << response.length() << " bytes)" << std::endl;
     return len;
 }
 
